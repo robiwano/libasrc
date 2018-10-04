@@ -14,6 +14,8 @@ using namespace std;
 
 namespace
 {
+    const ASRC_VERSION version{0, 1, 0};
+
     using clock = chrono::high_resolution_clock;
 
     static unsigned nextPowerOf2(unsigned v)
@@ -56,7 +58,7 @@ namespace
                 unsigned offset = 0;
                 while (num_frames > 0) {
                     unsigned rd_pos     = read_pos & mask;
-                    unsigned frames_now = min(num_frames, unsigned(buffer.size()) - rd_pos);
+                    unsigned frames_now = std::min(num_frames, unsigned(buffer.size()) - rd_pos);
                     copy_n(buffer.data() + rd_pos, frames_now, output + offset);
                     read_pos += frames_now;
                     offset += frames_now;
@@ -78,8 +80,8 @@ namespace
         atomic<double> output_rate;
         atomic<double> current_ratio;
         atomic<double> adaption_speed;
-        clock::duration input_timestamp;
-        clock::duration output_timestamp;
+        clock::duration input_timestamp{clock::duration::zero()};
+        clock::duration output_timestamp{clock::duration::zero()};
         const int in_buf_size;
         const int out_buf_size;
 
@@ -112,9 +114,9 @@ namespace
                 while (!stop_update_thread) {
                     this_thread::sleep_for(chrono::milliseconds(20));
                     if (input_rate != 0.0 && output_rate != 0.0) {
-                        auto factor = output_rate / input_rate;
+                        auto ratio = output_rate / input_rate;
                         current_ratio =
-                            (1.0 - adaption_speed) * current_ratio + adaption_speed * factor;
+                            (1.0 - adaption_speed) * current_ratio + adaption_speed * ratio;
                     }
                 }
             });
@@ -134,11 +136,13 @@ namespace
         void process_input(const float** inputs)
         {
             //
-            auto t_now      = clock::now();
-            auto t_diff     = t_now - clock::time_point(input_timestamp);
+            auto t_now = clock::now();
+            if (input_timestamp != clock::duration::zero()) {
+                auto t_diff = t_now - clock::time_point(input_timestamp);
+                input_rate  = double(in_buf_size) /
+                             chrono::duration_cast<chrono::microseconds>(t_diff).count();
+            }
             input_timestamp = t_now.time_since_epoch();
-            input_rate =
-                double(in_buf_size) / chrono::duration_cast<chrono::microseconds>(t_diff).count();
 
             for (size_t ch_idx = 0; ch_idx < fifos.size(); ++ch_idx) {
                 SRC_DATA data;
@@ -155,11 +159,13 @@ namespace
         void process_output(float** outputs)
         {
             //
-            auto t_now       = clock::now();
-            auto t_diff      = t_now - clock::time_point(output_timestamp);
+            auto t_now = clock::now();
+            if (output_timestamp != clock::duration::zero()) {
+                auto t_diff = t_now - clock::time_point(output_timestamp);
+                output_rate = double(out_buf_size) /
+                              chrono::duration_cast<chrono::microseconds>(t_diff).count();
+            }
             output_timestamp = t_now.time_since_epoch();
-            output_rate =
-                double(out_buf_size) / chrono::duration_cast<chrono::microseconds>(t_diff).count();
 
             for (size_t ch_idx = 0; ch_idx < fifos.size(); ++ch_idx) {
                 fifos[ch_idx]->pop(outputs[ch_idx], out_buf_size);
@@ -212,6 +218,14 @@ ASRC_RESULT asrc_process_output(ASRC_HANDLE handle, float** outputs)
     return ASRC_SUCCESS;
 }
 
+double asrc_current_ratio(ASRC_HANDLE handle)
+{
+    if (handle == nullptr)
+        return 0.0;
+    auto p = reinterpret_cast<asrc*>(handle);
+    return p->current_ratio;
+}
+
 void asrc_destroy(ASRC_HANDLE handle)
 {
     if (handle != nullptr) {
@@ -219,3 +233,5 @@ void asrc_destroy(ASRC_HANDLE handle)
         delete p;
     }
 }
+
+const ASRC_VERSION* asrc_version() { return &version; }

@@ -20,6 +20,12 @@ typedef enum ASRC_QUALITY {
     ASRC_LINEAR              = 4,
 } ASRC_QUALITY;
 
+typedef struct ASRC_VERSION {
+    int major;
+    int minor;
+    int patch;
+} ASRC_VERSION;
+
 /**
  * asrc_create - Creates the ASRC
  *
@@ -68,12 +74,28 @@ ASRC_RESULT asrc_process_input(ASRC_HANDLE handle, const float** inputs);
 ASRC_RESULT asrc_process_output(ASRC_HANDLE handle, float** outputs);
 
 /**
+ * asrc_current_ratio - Get the current resampling ratio = fs_out/fs_in, returns zero if handle is
+ * invalid.
+ *
+ * @param handle    Handle to ASRC
+ * @returns double
+ */
+double asrc_current_ratio(ASRC_HANDLE handle);
+
+/**
  * asrc_destroy - Destroy ASRC
  *
  * @param handle    Handle to ASRC
  * @returns void
  */
 void asrc_destroy(ASRC_HANDLE handle);
+
+/**
+ * asrc_version - Get version of ASRC
+ *
+ * @returns const ASRC_VERSION*
+ */
+const ASRC_VERSION* asrc_version();
 
 #ifdef __cplusplus
 }  // extern "C"
