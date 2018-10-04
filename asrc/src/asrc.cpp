@@ -144,13 +144,13 @@ namespace
             }
             input_timestamp = t_now.time_since_epoch();
 
+            SRC_DATA data;
+            data.src_ratio = current_ratio;
             for (size_t ch_idx = 0; ch_idx < fifos.size(); ++ch_idx) {
-                SRC_DATA data;
                 data.data_in       = inputs[ch_idx];
                 data.data_out      = src_buffer.data();
                 data.input_frames  = in_buf_size;
                 data.output_frames = long(src_buffer.size());
-                data.src_ratio     = current_ratio;
                 src_process(src_handle, &data);
                 fifos[ch_idx]->push(src_buffer.data(), data.output_frames_gen);
             }
