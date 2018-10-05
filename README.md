@@ -1,6 +1,8 @@
 Asynchronous Sample Rate Converter (libasrc)
 =====================================
 
+IMPORTANT: This project is work in progress! Do NOT expect it to work at all!
+
 Introduction
 ------------
 
